@@ -112,7 +112,7 @@ class Crawler:
                 if peer in self.active or peer in self.unreachable or peer in self.pending:
                     num_known_nodes += 1
                     continue
-                # discard peers older than one hour
+                # discard peers older than one day
                 if peer.timestamp < threshold:
                     num_stale_nodes += 1
                     continue
