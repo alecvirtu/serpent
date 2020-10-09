@@ -6,6 +6,9 @@ import sys
 import time
 import socket
 import random
+import pickle
+
+from datetime import datetime
 from loguru import logger
 
 from network import Address
@@ -25,14 +28,25 @@ DNS_SEEDS = [
         ]
 
 class Crawler:
-    def __init__(self, percentage, user_agent_stats):
+    def __init__(self, percentage, user_agent_stats, logpath, statspath):
         self.active = set()
         self.unreachable = set()
         self.pending = set()
         self.percentage = percentage
+        self.statspath = statspath
         self.num_active_crawlers = 0
         self.user_agents = {}
         self.user_agent_stats = user_agent_stats
+        self.starttime = datetime.now().strftime('%Y-%m-%d-%H.%M')
+
+        # optional logging to file
+        if logpath != '':
+            filename = f'{logpath}/{self.starttime}-perc-{self.percentage}.log'
+            print(f'logging to {filename}')
+            logger.add(filename, compression='tar.bz2')
+        else:
+            print('logging to file disabled')
+
 
     def bootstrap_nodelist(self):
         for dns_seed in DNS_SEEDS:
@@ -147,18 +161,17 @@ class Crawler:
 
         # pickle user-agent statistics if requested
         if self.user_agent_stats:
-            import pickle
-            from datetime import datetime
-            now = datetime.now().strftime('%Y-%m-%d-%H.%M')
-            filename = f'{now}-perc-{self.percentage}.pkl'
+            filename = f'{self.statspath}/{self.starttime}-perc-{self.percentage}.pkl'
             with open(filename, 'wb') as fp:
                 pickle.dump(self.user_agents, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', '--percentage', type=float, required=False, default=0.2, action='store', help='Percentage of nodes to query for peers')
 parser.add_argument('-u', '--useragents', type=bool, required=False, default=True, action='store', help='Store dict containing user-agent statistics')
+parser.add_argument('-s', '--statspath', type=str, required=False, default='.', action='store', help='Path to store user-agent statistics')
+parser.add_argument('-l', '--logpath', type=str, required=False, default='', action='store', help='Path to store logs')
 args = parser.parse_args()
 
-crawler = Crawler(percentage=args.percentage, user_agent_stats=args.useragents)
+crawler = Crawler(percentage=args.percentage, user_agent_stats=args.useragents, logpath=args.logpath, statspath=args.statspath)
 crawler.bootstrap_nodelist()
 asyncio.run(crawler.crawl_nodes())
